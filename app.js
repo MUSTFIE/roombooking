@@ -640,7 +640,10 @@ async function openDetail(bookingId) {
                   </div>
                   ${
                     canEdit
-                      ? `<button type="button" class="toggle-claim-edit shrink-0 text-xs text-blue-600 hover:text-blue-800 font-medium px-1">編輯</button>`
+                      ? `<div class="flex flex-col gap-1 shrink-0">
+                          <button type="button" class="toggle-claim-edit text-xs text-blue-600 hover:text-blue-800 font-medium px-1">編輯</button>
+                          <button type="button" class="delete-claim-btn text-xs text-red-500 hover:text-red-700 font-medium px-1" data-id="${c.id}">刪除</button>
+                        </div>`
                       : ''
                   }
                 </div>
@@ -731,6 +734,29 @@ async function openDetail(bookingId) {
       } catch (err) {
         console.error(err);
         showToast('更新失敗');
+      }
+    });
+  });
+
+  // 刪除自己的「新增預約」紀錄
+  detailContent.querySelectorAll('.delete-claim-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const claimId = btn.dataset.id;
+      if (!confirm('確定刪除這筆留言／需要使用紀錄？')) return;
+      try {
+        const { error } = await supabaseClient
+          .from('claims')
+          .delete()
+          .eq('id', claimId)
+          .eq('claimed_by', currentUser);
+        if (error) throw error;
+        await writeLog('delete_claim', { claim_id: claimId, room: currentRoom });
+        showToast('已刪除');
+        detailModal.classList.add('hidden');
+        loadWeekData();
+      } catch (err) {
+        console.error(err);
+        showToast('刪除失敗');
       }
     });
   });
@@ -883,6 +909,8 @@ function formatLogDetails(action, details) {
       return '修改了留言';
     case 'edit_booking_time':
       return d.start && d.end ? `改為 ${d.start}–${d.end}` : '修改了時間';
+    case 'delete_claim':
+      return '刪除了留言／需要使用紀錄';
     default:
       return '';
   }
@@ -895,6 +923,7 @@ const ACTION_LABEL = {
   delete_booking: '刪除預約',
   edit_claim: '修改留言',
   edit_booking_time: '修改預約時間',
+  delete_claim: '刪除留言／預約',
 };
 
 document.getElementById('btn-show-logs').addEventListener('click', async () => {
