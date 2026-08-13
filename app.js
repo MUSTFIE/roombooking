@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const ROOMS = ['A200', 'A201', 'A301'];
 const DAY_START = 9;   // 09:00
 const DAY_END = 22;    // 22:00
-const HOUR_HEIGHT = 28; // px per hour
+const HOUR_HEIGHT = 36; // px per hour（每小時一格，較清楚）
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -376,7 +376,7 @@ document.getElementById('booking-submit').addEventListener('click', async () => 
       count: dates.length,
     });
 
-    showToast(`已新增 ${dates.length} 筆預約`);
+    showToast(`已輸入 ${dates.length} 筆預約紀錄`);
     bookingModal.classList.add('hidden');
     loadWeekData();
   } catch (err) {
@@ -386,7 +386,7 @@ document.getElementById('booking-submit').addEventListener('click', async () => 
 });
 
 // ============================================
-// 需要使用 / 留言
+// 新增預約（須落在既有灰色預約紀錄內）
 // ============================================
 document.getElementById('btn-add-claim').addEventListener('click', () => {
   claimModalRoom.textContent = currentRoom;
@@ -443,7 +443,12 @@ document.getElementById('claim-submit').addEventListener('click', async () => {
   }
 
   if (!booking) {
-    return showToast('找不到涵蓋此時段的預約，請確認時間是否在已預約範圍內');
+    return showToast('找不到涵蓋此時段的預約紀錄，請確認時間是否在已輸入的預約範圍內');
+  }
+
+  // 若該預約已標記為有在使用，不可再新增
+  if (booking.is_in_use) {
+    return showToast('此時段已標記為「有在使用」，無法再預約');
   }
 
   try {
@@ -473,7 +478,7 @@ document.getElementById('claim-submit').addEventListener('click', async () => {
       booking_id: booking.id,
     });
 
-    showToast('已新增需要使用紀錄，並標記為有在使用');
+    showToast('已新增預約，並標記為有在使用');
     claimModal.classList.add('hidden');
     loadWeekData();
   } catch (err) {
@@ -623,8 +628,8 @@ document.getElementById('btn-show-logs').addEventListener('click', async () => {
     }
 
     const actionLabel = {
-      create_booking: '新增預約',
-      add_claim: '需要使用 / 留言',
+      create_booking: '輸入預約紀錄',
+      add_claim: '新增預約',
       toggle_use: '切換使用狀態',
       delete_booking: '刪除預約',
     };
