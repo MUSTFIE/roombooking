@@ -499,9 +499,26 @@ document.getElementById('claim-submit').addEventListener('click', async () => {
     return showToast('找不到涵蓋此時段的預約紀錄，請確認時間是否在已輸入的預約範圍內');
   }
 
-  // 若該預約已標記為有在使用，不可再新增
-  if (booking.is_in_use) {
-    return showToast('此時段已標記為「有在使用」，無法再預約');
+  // 檢查是否與同日同房既有「新增預約」時段重疊
+  try {
+    const { data: existingClaims, error: cErr } = await supabaseClient
+      .from('claims')
+      .select('id, start_time, end_time, claimed_by')
+      .eq('room', currentRoom)
+      .eq('claim_date', date);
+    if (cErr) throw cErr;
+
+    const overlapClaim = (existingClaims || []).find((oc) =>
+      timesOverlap(startM, endM, parseTimeToMinutes(oc.start_time), parseTimeToMinutes(oc.end_time))
+    );
+    if (overlapClaim) {
+      return showToast(
+        `與已預約時段重疊（${formatTime(overlapClaim.start_time)}–${formatTime(overlapClaim.end_time)}，${overlapClaim.claimed_by}），無法新增`
+      );
+    }
+  } catch (err) {
+    console.error(err);
+    return showToast('檢查重疊時發生錯誤');
   }
 
   try {
@@ -600,12 +617,23 @@ async function openDetail(bookingId) {
               <div class="bg-slate-50 rounded-lg px-3 py-2 mb-2" data-claim-id="${c.id}">
                 <div class="flex justify-between text-xs text-slate-400 mb-0.5">
                   <span>${escapeHtml(c.claimed_by)}</span>
-                  <span>${formatTime(c.start_time)}–${formatTime(c.end_time)}</span>
+                  <span class="claim-time-label">${formatTime(c.start_time)}–${formatTime(c.end_time)}</span>
                 </div>
                 <div class="claim-remark-text">${c.remark ? escapeHtml(c.remark) : '<span class="text-slate-400">（無留言）</span>'}</div>
                 ${
                   canEdit
-                    ? `<button type="button" class="edit-claim-btn mt-1.5 text-xs text-blue-600 hover:text-blue-800" data-id="${c.id}" data-remark="${escapeHtml(c.remark || '')}">編輯留言</button>`
+                    ? `<div class="mt-2 space-y-1.5 border-t border-slate-200/60 pt-2">
+                        <div class="grid grid-cols-2 gap-1.5">
+                          <input type="text" class="claim-edit-start border border-slate-200 rounded px-2 py-1 text-xs" value="${formatTime(c.start_time)}" placeholder="13:00" maxlength="5" />
+                          <input type="text" class="claim-edit-end border border-slate-200 rounded px-2 py-1 text-xs" value="${formatTime(c.end_time)}" placeholder="15:00" maxlength="5" />
+                        </div>
+                        <input type="text" class="claim-edit-remark w-full border border-slate-200 rounded px-2 py-1 text-xs" value="${escapeHtml(c.remark || '')}" placeholder="留言（選填）" />
+                        <button type="button" class="edit-claim-btn w-full text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 rounded py-1.5 font-medium"
+                          data-id="${c.id}"
+                          data-booking-id="${b.id}"
+                          data-booking-start="${formatTime(b.start_time)}"
+                          data-booking-end="${formatTime(b.end_time)}">儲存修改</button>
+                      </div>`
                     : ''
                 }
               </div>`;
@@ -616,22 +644,58 @@ async function openDetail(bookingId) {
     }
   `;
 
-  // 綁定編輯留言（僅自己的）
+  // 綁定編輯自己的「新增預約」（時間 + 留言）
   detailContent.querySelectorAll('.edit-claim-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const claimId = btn.dataset.id;
-      const oldRemark = btn.dataset.remark || '';
-      const newRemark = prompt('修改留言：', oldRemark);
-      if (newRemark === null) return;
+      const box = btn.closest('[data-claim-id]');
+      const startVal = parseTimeInput(box.querySelector('.claim-edit-start').value);
+      const endVal = parseTimeInput(box.querySelector('.claim-edit-end').value);
+      const remarkVal = box.querySelector('.claim-edit-remark').value.trim();
+      const parentStart = parseTimeToMinutes(btn.dataset.bookingStart);
+      const parentEnd = parseTimeToMinutes(btn.dataset.bookingEnd);
+
+      if (!startVal || !endVal) return showToast('時間格式錯誤，例如 13:00');
+      if (startVal >= endVal) return showToast('結束時間必須晚於開始時間');
+
+      const sM = parseTimeToMinutes(startVal);
+      const eM = parseTimeToMinutes(endVal);
+      if (sM < parentStart || eM > parentEnd) {
+        return showToast('時間必須落在原預約紀錄範圍內');
+      }
+
+      // 不可與同日同房其他 claim 重疊（排除自己）
       try {
+        const { data: otherClaims, error: qErr } = await supabaseClient
+          .from('claims')
+          .select('id, start_time, end_time')
+          .eq('room', currentRoom)
+          .eq('claim_date', b.booking_date)
+          .neq('id', claimId);
+        if (qErr) throw qErr;
+        const overlap = (otherClaims || []).some((oc) =>
+          timesOverlap(sM, eM, parseTimeToMinutes(oc.start_time), parseTimeToMinutes(oc.end_time))
+        );
+        if (overlap) return showToast('與其他已預約時段重疊，請調整時間');
+
         const { error } = await supabaseClient
           .from('claims')
-          .update({ remark: newRemark.trim() || null })
+          .update({
+            start_time: timeToDb(startVal),
+            end_time: timeToDb(endVal),
+            remark: remarkVal || null,
+          })
           .eq('id', claimId)
           .eq('claimed_by', currentUser);
         if (error) throw error;
-        await writeLog('edit_claim', { claim_id: claimId, room: currentRoom });
-        showToast('留言已更新');
+
+        await writeLog('edit_claim', {
+          claim_id: claimId,
+          room: currentRoom,
+          start: startVal,
+          end: endVal,
+        });
+        showToast('已更新');
         detailModal.classList.add('hidden');
         loadWeekData();
       } catch (err) {
