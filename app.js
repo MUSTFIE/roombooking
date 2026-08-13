@@ -525,21 +525,52 @@ async function openDetail(bookingId) {
         ? `<div class="pt-3 border-t border-slate-100">
             <div class="text-slate-500 mb-2">留言 / 需要使用紀錄</div>
             ${claims
-              .map(
-                (c) => `
-              <div class="bg-slate-50 rounded-lg px-3 py-2 mb-2">
+              .map((c) => {
+                const canEdit = c.claimed_by === currentUser;
+                return `
+              <div class="bg-slate-50 rounded-lg px-3 py-2 mb-2" data-claim-id="${c.id}">
                 <div class="flex justify-between text-xs text-slate-400 mb-0.5">
                   <span>${escapeHtml(c.claimed_by)}</span>
                   <span>${formatTime(c.start_time)}–${formatTime(c.end_time)}</span>
                 </div>
-                ${c.remark ? `<div>${escapeHtml(c.remark)}</div>` : '<div class="text-slate-400">（無留言）</div>'}
-              </div>`
-              )
+                <div class="claim-remark-text">${c.remark ? escapeHtml(c.remark) : '<span class="text-slate-400">（無留言）</span>'}</div>
+                ${
+                  canEdit
+                    ? `<button type="button" class="edit-claim-btn mt-1.5 text-xs text-blue-600 hover:text-blue-800" data-id="${c.id}" data-remark="${escapeHtml(c.remark || '')}">編輯留言</button>`
+                    : ''
+                }
+              </div>`;
+              })
               .join('')}
           </div>`
         : ''
     }
   `;
+
+  // 綁定編輯留言
+  detailContent.querySelectorAll('.edit-claim-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const claimId = btn.dataset.id;
+      const oldRemark = btn.dataset.remark || '';
+      const newRemark = prompt('修改留言：', oldRemark);
+      if (newRemark === null) return;
+      try {
+        const { error } = await supabaseClient
+          .from('claims')
+          .update({ remark: newRemark.trim() || null })
+          .eq('id', claimId)
+          .eq('claimed_by', currentUser); // 再保險：只能改自己的
+        if (error) throw error;
+        await writeLog('edit_claim', { claim_id: claimId, room: currentRoom });
+        showToast('留言已更新');
+        detailModal.classList.add('hidden');
+        loadWeekData();
+      } catch (err) {
+        console.error(err);
+        showToast('更新失敗');
+      }
+    });
+  });
 
   detailToggleUse.textContent = b.is_in_use ? '改為「沒有在使用」' : '改為「有在使用」';
   detailToggleUse.className = b.is_in_use
@@ -611,6 +642,49 @@ async function writeLog(action, details) {
   }
 }
 
+let cachedLogs = [];
+
+function formatLogDetails(action, details) {
+  if (!details) return '';
+  const d = details;
+  switch (action) {
+    case 'create_booking':
+      return [
+        d.dates ? `日期：${Array.isArray(d.dates) ? d.dates.join('、') : d.dates}` : '',
+        d.start && d.end ? `時段：${d.start}–${d.end}` : '',
+        d.count ? `共 ${d.count} 筆` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    case 'add_claim':
+      return [
+        d.date ? `日期：${d.date}` : '',
+        d.start && d.end ? `時段：${d.start}–${d.end}` : '',
+        d.remark ? `留言：${d.remark}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    case 'toggle_use':
+      return d.new_status === true || d.new_status === false
+        ? `改為「${d.new_status ? '有在使用' : '沒有在使用'}」`
+        : '';
+    case 'delete_booking':
+      return '已刪除該筆預約';
+    case 'edit_claim':
+      return '修改了留言';
+    default:
+      return '';
+  }
+}
+
+const ACTION_LABEL = {
+  create_booking: '輸入預約紀錄',
+  add_claim: '新增預約',
+  toggle_use: '切換使用狀態',
+  delete_booking: '刪除預約',
+  edit_claim: '修改留言',
+};
+
 document.getElementById('btn-show-logs').addEventListener('click', async () => {
   logsContent.innerHTML = `<div class="text-slate-400 py-6 text-center">載入中...</div>`;
   logsModal.classList.remove('hidden');
@@ -619,31 +693,21 @@ document.getElementById('btn-show-logs').addEventListener('click', async () => {
       .from('logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(200);
     if (error) throw error;
 
-    if (!data || data.length === 0) {
+    cachedLogs = data || [];
+
+    if (cachedLogs.length === 0) {
       logsContent.innerHTML = `<div class="text-slate-400 py-6 text-center">尚無操作紀錄</div>`;
       return;
     }
 
-    const actionLabel = {
-      create_booking: '輸入預約紀錄',
-      add_claim: '新增預約',
-      toggle_use: '切換使用狀態',
-      delete_booking: '刪除預約',
-    };
-
-    logsContent.innerHTML = data
+    logsContent.innerHTML = cachedLogs
       .map((log) => {
         const time = new Date(log.created_at).toLocaleString('zh-TW');
-        const label = actionLabel[log.action] || log.action;
-        let detailStr = '';
-        if (log.details) {
-          detailStr = Object.entries(log.details)
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-            .join(' · ');
-        }
+        const label = ACTION_LABEL[log.action] || log.action;
+        const detailStr = formatLogDetails(log.action, log.details);
         return `
           <div class="border border-slate-100 rounded-lg px-3 py-2.5">
             <div class="flex flex-wrap justify-between gap-2">
@@ -654,7 +718,7 @@ document.getElementById('btn-show-logs').addEventListener('click', async () => {
               <span class="inline-block bg-slate-100 rounded px-1.5 py-0.5 text-xs mr-1">${escapeHtml(log.room || '')}</span>
               ${escapeHtml(label)}
             </div>
-            ${detailStr ? `<div class="text-xs text-slate-400 mt-1 truncate">${escapeHtml(detailStr)}</div>` : ''}
+            ${detailStr ? `<div class="text-xs text-slate-500 mt-1">${escapeHtml(detailStr)}</div>` : ''}
           </div>
         `;
       })
@@ -662,6 +726,45 @@ document.getElementById('btn-show-logs').addEventListener('click', async () => {
   } catch (err) {
     logsContent.innerHTML = `<div class="text-red-500 py-6 text-center">載入失敗：${escapeHtml(err.message)}</div>`;
   }
+});
+
+document.getElementById('logs-export').addEventListener('click', () => {
+  if (!cachedLogs.length) {
+    showToast('目前沒有可匯出的紀錄');
+    return;
+  }
+  const headers = ['時間', '操作人', '房間', '操作', '說明'];
+  const rows = cachedLogs.map((log) => {
+    const time = new Date(log.created_at).toLocaleString('zh-TW');
+    const label = ACTION_LABEL[log.action] || log.action;
+    const detail = formatLogDetails(log.action, log.details);
+    return [time, log.actor || '', log.room || '', label, detail];
+  });
+
+  const csvContent =
+    '\uFEFF' +
+    [headers, ...rows]
+      .map((row) =>
+        row
+          .map((cell) => {
+            const s = String(cell ?? '');
+            if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+              return `"${s.replace(/"/g, '""')}"`;
+            }
+            return s;
+          })
+          .join(',')
+      )
+      .join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `操作紀錄_${toDateStr(new Date())}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('已匯出 CSV');
 });
 
 document.getElementById('logs-close').addEventListener('click', () => {
