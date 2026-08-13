@@ -177,15 +177,17 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium mb-1">開始時間（24小時，例如 13:00）</label>
-            <input id="booking-start" type="time" step="60" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label class="block text-sm font-medium mb-1">開始時間（24小時）</label>
+            <input id="booking-start" type="text" inputmode="numeric" placeholder="13:00" maxlength="5"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">結束時間（24小時，例如 15:00）</label>
-            <input id="booking-end" type="time" step="60" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label class="block text-sm font-medium mb-1">結束時間（24小時）</label>
+            <input id="booking-end" type="text" inputmode="numeric" placeholder="15:00" maxlength="5"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
-        <p class="text-xs text-slate-400">若選擇多天，會在每一天產生相同時段的預約紀錄。時間為 24 小時制（例如 13:00）。</p>
+        <p class="text-xs text-slate-400">請輸入 24 小時制，例如 09:00、13:30。若選擇多天，會在每一天產生相同時段。</p>
       </div>
       <div class="flex gap-3 mt-6">
         <button id="booking-cancel" class="flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50">取消</button>
@@ -206,12 +208,14 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium mb-1">開始時間（24小時，例如 13:00）</label>
-            <input id="claim-start" type="time" step="60" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label class="block text-sm font-medium mb-1">開始時間（24小時）</label>
+            <input id="claim-start" type="text" inputmode="numeric" placeholder="13:00" maxlength="5"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">結束時間（24小時，例如 15:00）</label>
-            <input id="claim-end" type="time" step="60" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label class="block text-sm font-medium mb-1">結束時間（24小時）</label>
+            <input id="claim-end" type="text" inputmode="numeric" placeholder="15:00" maxlength="5"
+                   class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
         <div>
