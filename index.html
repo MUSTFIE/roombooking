@@ -11,11 +11,61 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', system-ui, sans-serif; }
-    .status-dot { width: 10px; height: 10px; border-radius: 9999px; flex-shrink: 0; }
-    .status-in-use { background-color: #22c55e; }
-    .status-not-used { background-color: #94a3b8; }
-    .card { transition: box-shadow 0.15s ease; }
-    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: 56px repeat(7, 1fr);
+    }
+    .time-label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-align: right;
+      padding-right: 8px;
+      transform: translateY(-6px);
+    }
+    .day-header {
+      text-align: center;
+      padding: 8px 4px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .day-header.today {
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+    .slot-cell {
+      border-right: 1px solid #f1f5f9;
+      border-bottom: 1px solid #f1f5f9;
+      position: relative;
+      min-height: 28px;
+    }
+    .event-block {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      border-radius: 4px;
+      padding: 2px 4px;
+      font-size: 11px;
+      line-height: 1.2;
+      overflow: hidden;
+      cursor: pointer;
+      z-index: 10;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .event-gray {
+      background: #e2e8f0;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+    .event-green {
+      background: #bbf7d0;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+    .event-block:hover {
+      filter: brightness(0.97);
+      z-index: 20;
+    }
   </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -27,27 +77,22 @@
       <p class="text-sm text-slate-500 text-center mb-6">A200 · A201 · A301</p>
       <label class="block text-sm font-medium mb-1.5">請輸入暱稱</label>
       <input id="nickname-input" type="text" placeholder="例如：小明" maxlength="20"
-             class="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4" />
-      <button id="login-btn"
-              class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition">
+             class="w-full border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4" />
+      <button id="login-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition">
         進入系統
       </button>
     </div>
   </div>
 
   <!-- Main App -->
-  <div id="app" class="hidden max-w-5xl mx-auto px-4 py-6 sm:py-8">
-    <!-- Header -->
-    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight">房間使用狀態</h1>
-        <p class="text-sm text-slate-500 mt-0.5">A200 · A201 · A301</p>
-      </div>
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
-          <span class="text-sm text-slate-500">日期</span>
-          <input id="date-picker" type="date"
-                 class="border-0 focus:outline-none text-sm font-medium bg-transparent" />
+  <div id="app" class="hidden max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+
+    <!-- Top bar -->
+    <header class="flex flex-col gap-4 mb-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight">房間使用狀態</h1>
+          <p class="text-sm text-slate-500">週曆視圖 · 09:00–22:00</p>
         </div>
         <div class="flex items-center gap-2 text-sm bg-white border border-slate-200 rounded-lg px-3 py-1.5 shadow-sm">
           <span class="text-slate-500">你好，</span>
@@ -55,77 +100,156 @@
           <button id="logout-btn" class="text-slate-400 hover:text-red-500 ml-1 text-xs transition">登出</button>
         </div>
       </div>
+
+      <!-- Room tabs -->
+      <div class="flex gap-1 bg-slate-200/70 p-1 rounded-xl w-fit">
+        <button data-room="A200" class="room-tab px-4 py-1.5 rounded-lg text-sm font-medium transition bg-white shadow text-slate-800">A200</button>
+        <button data-room="A201" class="room-tab px-4 py-1.5 rounded-lg text-sm font-medium transition text-slate-600 hover:text-slate-800">A201</button>
+        <button data-room="A301" class="room-tab px-4 py-1.5 rounded-lg text-sm font-medium transition text-slate-600 hover:text-slate-800">A301</button>
+      </div>
+
+      <!-- Actions + week nav -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-add-booking" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
+            + 新增預約
+          </button>
+          <button id="btn-add-claim" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
+            需要使用 / 留言
+          </button>
+          <button id="btn-show-logs" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-3.5 py-2 rounded-lg transition">
+            操作紀錄
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="prev-week" class="border border-slate-200 bg-white hover:bg-slate-50 rounded-lg p-2 transition" title="上一週">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <span id="week-label" class="text-sm font-medium min-w-[140px] text-center"></span>
+          <button id="next-week" class="border border-slate-200 bg-white hover:bg-slate-50 rounded-lg p-2 transition" title="下一週">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+          <button id="today-btn" class="text-xs text-blue-600 hover:text-blue-800 ml-1">今天</button>
+        </div>
+      </div>
     </header>
 
-    <!-- Rooms -->
-    <div id="rooms-container" class="grid gap-5">
-      <!-- rendered by JS -->
+    <!-- Calendar -->
+    <div id="calendar-wrap" class="bg-white rounded-xl border border-slate-200 overflow-x-auto shadow-sm">
+      <div id="calendar" class="min-w-[720px]">
+        <!-- rendered by JS -->
+      </div>
     </div>
 
     <!-- Legend -->
-    <div class="mt-10 flex flex-wrap gap-6 text-sm text-slate-500">
+    <div class="mt-4 flex flex-wrap gap-5 text-sm text-slate-500">
       <div class="flex items-center gap-2">
-        <span class="status-dot status-in-use"></span> 有在使用
+        <span class="inline-block w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300"></span> 已預約（尚未使用）
       </div>
       <div class="flex items-center gap-2">
-        <span class="status-dot status-not-used"></span> 尚未確認 / 沒有在使用
+        <span class="inline-block w-3.5 h-3.5 rounded bg-emerald-200 border border-emerald-300"></span> 有在使用
       </div>
     </div>
   </div>
 
+  <!-- ========== Modals ========== -->
+
   <!-- Add Booking Modal -->
   <div id="booking-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
-      <h2 class="text-lg font-semibold mb-4">新增預約 · <span id="booking-modal-room"></span></h2>
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-lg font-semibold mb-1">新增預約</h2>
+      <p class="text-sm text-slate-500 mb-4">房間：<span id="booking-modal-room" class="font-medium text-slate-700"></span></p>
       <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">開始時間</label>
-          <input id="booking-start" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">開始日期</label>
+            <input id="booking-date-from" type="date" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">結束日期</label>
+            <input id="booking-date-to" type="date" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium mb-1">結束時間</label>
-          <input id="booking-end" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">開始時間（24h）</label>
+            <input id="booking-start" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">結束時間（24h）</label>
+            <input id="booking-end" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
         </div>
+        <p class="text-xs text-slate-400">若選擇多天，會在每一天產生相同時段的預約。</p>
       </div>
       <div class="flex gap-3 mt-6">
-        <button id="booking-cancel" class="flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50 transition">取消</button>
-        <button id="booking-submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium transition">新增</button>
+        <button id="booking-cancel" class="flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50">取消</button>
+        <button id="booking-submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium">新增</button>
       </div>
     </div>
   </div>
 
   <!-- Add Claim Modal -->
   <div id="claim-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
       <h2 class="text-lg font-semibold mb-1">需要使用 / 留言</h2>
-      <p class="text-sm text-slate-500 mb-4">輸入後會自動標記該預約為「有在使用」</p>
+      <p class="text-sm text-slate-500 mb-4">房間：<span id="claim-modal-room" class="font-medium text-slate-700"></span><br>時間必須落在既有預約範圍內，送出後會自動標記為「有在使用」。</p>
       <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">日期</label>
+          <input id="claim-date" type="date" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium mb-1">開始時間</label>
+            <label class="block text-sm font-medium mb-1">開始時間（24h）</label>
             <input id="claim-start" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">結束時間</label>
+            <label class="block text-sm font-medium mb-1">結束時間（24h）</label>
             <input id="claim-end" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">留言（選填）</label>
-          <textarea id="claim-remark" rows="2" placeholder="例如：下午 2 點後我要用"
+          <textarea id="claim-remark" rows="2" placeholder="例如：13:00 後我要用"
                     class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
         </div>
       </div>
       <div class="flex gap-3 mt-6">
-        <button id="claim-cancel" class="flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50 transition">取消</button>
-        <button id="claim-submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium transition">確認</button>
+        <button id="claim-cancel" class="flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50">取消</button>
+        <button id="claim-submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-2.5 text-sm font-medium">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal (click event) -->
+  <div id="detail-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-lg font-semibold mb-4">預約詳情</h2>
+      <div id="detail-content" class="space-y-3 text-sm"></div>
+      <div class="flex gap-3 mt-6">
+        <button id="detail-toggle-use" class="flex-1 border rounded-lg py-2.5 text-sm font-medium transition"></button>
+        <button id="detail-delete" class="flex-1 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg py-2.5 text-sm font-medium">刪除預約</button>
+      </div>
+      <button id="detail-close" class="w-full mt-3 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50">關閉</button>
+    </div>
+  </div>
+
+  <!-- Logs Modal -->
+  <div id="logs-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">操作紀錄</h2>
+        <button id="logs-close" class="text-slate-400 hover:text-slate-600 text-sm">關閉</button>
+      </div>
+      <div id="logs-content" class="overflow-y-auto flex-1 text-sm space-y-2">
+        <!-- rendered by JS -->
       </div>
     </div>
   </div>
 
   <!-- Toast -->
-  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-[60]">
-  </div>
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-[60]"></div>
 
   <script src="app.js"></script>
 </body>
