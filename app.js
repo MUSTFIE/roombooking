@@ -1,7 +1,7 @@
 // ============================================
 // 設定區：請替換成你的 Supabase 專案資訊
 // ============================================
-const SUPABASE_URL = 'https://hsfcgtktagvuqsdaadjk.supabase.co/rest/v1;          // 例如 https://abcdefgh.supabase.co
+const SUPABASE_URL = 'https://hsfcgtktagvuqsdaadjk.supabase.co/rest/v1';          // 例如 https://abcdefgh.supabase.co
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhzZmNndGt0YWd2dXFzZGFhZGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1ODAyMzEsImV4cCI6MjEwMjE1NjIzMX0.IqCx1qkaMKcyZqm8IBhYbfEcyWsZrvqlpfB9ZH6BWFI'; // Settings → API → anon public
 
 const ROOMS = ['A200', 'A201', 'A301'];
