@@ -34,23 +34,27 @@
       font-weight: 600;
     }
     .slot-cell {
-      border-right: 1px solid #f1f5f9;
-      border-bottom: 1px solid #f1f5f9;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
       position: relative;
-      min-height: 28px;
+      min-height: 36px;
+      background: #fff;
+    }
+    .slot-cell:nth-child(even) {
+      background: #fafafa;
     }
     .event-block {
       position: absolute;
-      left: 2px;
-      right: 2px;
-      border-radius: 4px;
-      padding: 2px 4px;
-      font-size: 11px;
-      line-height: 1.2;
+      left: 3px;
+      right: 3px;
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-size: 12px;
+      line-height: 1.25;
       overflow: hidden;
       cursor: pointer;
       z-index: 10;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
     .event-gray {
       background: #e2e8f0;
@@ -112,10 +116,10 @@
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap gap-2">
           <button id="btn-add-booking" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
-            + 新增預約
+            輸入預約紀錄
           </button>
           <button id="btn-add-claim" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
-            需要使用 / 留言
+            新增預約
           </button>
           <button id="btn-show-logs" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-3.5 py-2 rounded-lg transition">
             操作紀錄
@@ -144,7 +148,7 @@
     <!-- Legend -->
     <div class="mt-4 flex flex-wrap gap-5 text-sm text-slate-500">
       <div class="flex items-center gap-2">
-        <span class="inline-block w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300"></span> 已預約（尚未使用）
+        <span class="inline-block w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300"></span> 預約紀錄（尚未使用）
       </div>
       <div class="flex items-center gap-2">
         <span class="inline-block w-3.5 h-3.5 rounded bg-emerald-200 border border-emerald-300"></span> 有在使用
@@ -157,8 +161,8 @@
   <!-- Add Booking Modal -->
   <div id="booking-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-      <h2 class="text-lg font-semibold mb-1">新增預約</h2>
-      <p class="text-sm text-slate-500 mb-4">房間：<span id="booking-modal-room" class="font-medium text-slate-700"></span></p>
+      <h2 class="text-lg font-semibold mb-1">輸入預約紀錄</h2>
+      <p class="text-sm text-slate-500 mb-4">房間：<span id="booking-modal-room" class="font-medium text-slate-700"></span>（把公司預約系統的紀錄登記進來）</p>
       <div class="space-y-4">
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -180,7 +184,7 @@
             <input id="booking-end" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
-        <p class="text-xs text-slate-400">若選擇多天，會在每一天產生相同時段的預約。</p>
+        <p class="text-xs text-slate-400">若選擇多天，會在每一天產生相同時段的預約紀錄。時間為 24 小時制（例如 13:00）。</p>
       </div>
       <div class="flex gap-3 mt-6">
         <button id="booking-cancel" class="flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50">取消</button>
@@ -192,8 +196,8 @@
   <!-- Add Claim Modal -->
   <div id="claim-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-      <h2 class="text-lg font-semibold mb-1">需要使用 / 留言</h2>
-      <p class="text-sm text-slate-500 mb-4">房間：<span id="claim-modal-room" class="font-medium text-slate-700"></span><br>時間必須落在既有預約範圍內，送出後會自動標記為「有在使用」。</p>
+      <h2 class="text-lg font-semibold mb-1">新增預約</h2>
+      <p class="text-sm text-slate-500 mb-4">房間：<span id="claim-modal-room" class="font-medium text-slate-700"></span><br>時間必須落在既有「預約紀錄」範圍內，且該時段尚未被標記為有在使用。送出後會自動標記為「有在使用」。</p>
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium mb-1">日期</label>
