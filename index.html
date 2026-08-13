@@ -40,8 +40,11 @@
       min-height: 36px;
       background: #fff;
     }
-    .slot-cell:nth-child(even) {
-      background: #fafafa;
+    .calendar-grid .slot-cell:nth-child(8n+2),
+    .calendar-grid .slot-cell:nth-child(8n+4),
+    .calendar-grid .slot-cell:nth-child(8n+6),
+    .calendar-grid .slot-cell:nth-child(8n) {
+      background: #f8fafc;
     }
     .event-block {
       position: absolute;
@@ -105,21 +108,19 @@
         </div>
       </div>
 
-      <!-- Room tabs -->
-      <div class="flex gap-1 bg-slate-200/70 p-1 rounded-xl w-fit">
-        <button data-room="A200" class="room-tab px-4 py-1.5 rounded-lg text-sm font-medium transition bg-white shadow text-slate-800">A200</button>
-        <button data-room="A201" class="room-tab px-4 py-1.5 rounded-lg text-sm font-medium transition text-slate-600 hover:text-slate-800">A201</button>
-        <button data-room="A301" class="room-tab px-4 py-1.5 rounded-lg text-sm font-medium transition text-slate-600 hover:text-slate-800">A301</button>
-      </div>
-
-      <!-- Actions + week nav -->
+      <!-- Room tabs + Actions + week nav -->
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap gap-2">
-          <button id="btn-add-booking" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
-            輸入預約紀錄
-          </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex gap-1 bg-slate-200/70 p-1 rounded-xl">
+            <button data-room="A200" class="room-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition bg-white shadow text-slate-800">A200</button>
+            <button data-room="A201" class="room-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition text-slate-600 hover:text-slate-800">A201</button>
+            <button data-room="A301" class="room-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition text-slate-600 hover:text-slate-800">A301</button>
+          </div>
           <button id="btn-add-claim" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
             新增預約
+          </button>
+          <button id="btn-add-booking" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
+            輸入預約紀錄
           </button>
           <button id="btn-show-logs" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-3.5 py-2 rounded-lg transition">
             操作紀錄
@@ -176,12 +177,12 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium mb-1">開始時間（24h）</label>
-            <input id="booking-start" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label class="block text-sm font-medium mb-1">開始時間（24小時，例如 13:00）</label>
+            <input id="booking-start" type="time" step="60" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">結束時間（24h）</label>
-            <input id="booking-end" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label class="block text-sm font-medium mb-1">結束時間（24小時，例如 15:00）</label>
+            <input id="booking-end" type="time" step="60" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
         <p class="text-xs text-slate-400">若選擇多天，會在每一天產生相同時段的預約紀錄。時間為 24 小時制（例如 13:00）。</p>
@@ -205,12 +206,12 @@
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium mb-1">開始時間（24h）</label>
-            <input id="claim-start" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label class="block text-sm font-medium mb-1">開始時間（24小時，例如 13:00）</label>
+            <input id="claim-start" type="time" step="60" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-1">結束時間（24h）</label>
-            <input id="claim-end" type="time" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label class="block text-sm font-medium mb-1">結束時間（24小時，例如 15:00）</label>
+            <input id="claim-end" type="time" step="60" class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
         <div>
@@ -242,9 +243,12 @@
   <!-- Logs Modal -->
   <div id="logs-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-4 gap-3">
         <h2 class="text-lg font-semibold">操作紀錄</h2>
-        <button id="logs-close" class="text-slate-400 hover:text-slate-600 text-sm">關閉</button>
+        <div class="flex items-center gap-2">
+          <button id="logs-export" class="text-sm border border-slate-200 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg font-medium transition">匯出 CSV</button>
+          <button id="logs-close" class="text-slate-400 hover:text-slate-600 text-sm">關閉</button>
+        </div>
       </div>
       <div id="logs-content" class="overflow-y-auto flex-1 text-sm space-y-2">
         <!-- rendered by JS -->
