@@ -83,9 +83,27 @@ function formatTime(t) {
   return String(t).slice(0, 5);
 }
 
+/** 驗證並正規化 24 小時時間，回傳 "HH:MM" 或 null */
+function parseTimeInput(str) {
+  if (!str) return null;
+  const cleaned = String(str).trim().replace('：', ':');
+  const m = cleaned.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
 function timeToDb(t) {
   if (!t) return null;
-  return t.length === 5 ? t + ':00' : t;
+  const p = parseTimeInput(t);
+  return p ? p + ':00' : null;
+}
+
+/** 兩時段是否重疊 */
+function timesOverlap(s1, e1, s2, e2) {
+  return s1 < e2 && s2 < e1;
 }
 
 function getMonday(d) {
@@ -340,12 +358,13 @@ bookingModal.addEventListener('click', (e) => {
 document.getElementById('booking-submit').addEventListener('click', async () => {
   const from = bookingDateFrom.value;
   const to = bookingDateTo.value;
-  const start = bookingStart.value;
-  const end = bookingEnd.value;
+  const startNorm = parseTimeInput(bookingStart.value);
+  const endNorm = parseTimeInput(bookingEnd.value);
 
-  if (!from || !to || !start || !end) return showToast('請填寫完整日期與時間');
+  if (!from || !to) return showToast('請填寫完整日期');
+  if (!startNorm || !endNorm) return showToast('時間格式錯誤，請使用 24 小時制，例如 09:00 或 13:30');
   if (from > to) return showToast('結束日期不能早於開始日期');
-  if (start >= end) return showToast('結束時間必須晚於開始時間');
+  if (startNorm >= endNorm) return showToast('結束時間必須晚於開始時間');
 
   const dates = [];
   let cur = new Date(from + 'T00:00:00');
@@ -355,12 +374,45 @@ document.getElementById('booking-submit').addEventListener('click', async () => 
     cur = addDays(cur, 1);
   }
 
+  const startM = parseTimeToMinutes(startNorm);
+  const endM = parseTimeToMinutes(endNorm);
+
+  // 檢查與既有時段是否重疊
+  try {
+    const { data: existing, error: qErr } = await supabaseClient
+      .from('bookings')
+      .select('id, booking_date, start_time, end_time, is_in_use, booked_by')
+      .eq('room', currentRoom)
+      .in('booking_date', dates);
+    if (qErr) throw qErr;
+
+    const conflicts = (existing || []).filter((b) => {
+      const bStart = parseTimeToMinutes(b.start_time);
+      const bEnd = parseTimeToMinutes(b.end_time);
+      return timesOverlap(startM, endM, bStart, bEnd);
+    });
+
+    if (conflicts.length > 0) {
+      const summary = conflicts
+        .slice(0, 5)
+        .map((b) => `${b.booking_date} ${formatTime(b.start_time)}–${formatTime(b.end_time)}${b.is_in_use ? '（有在使用）' : ''}`)
+        .join('\n');
+      const more = conflicts.length > 5 ? `\n…共 ${conflicts.length} 筆衝突` : '';
+      const ok = confirm(`以下時段與既有預約重疊：\n\n${summary}${more}\n\n仍要新增嗎？`);
+      if (!ok) return;
+    }
+  } catch (err) {
+    console.error(err);
+    // 查詢失敗仍允許繼續，但提示
+    showToast('無法檢查衝突，仍會嘗試新增');
+  }
+
   try {
     const rows = dates.map((d) => ({
       room: currentRoom,
       booking_date: d,
-      start_time: timeToDb(start),
-      end_time: timeToDb(end),
+      start_time: timeToDb(startNorm),
+      end_time: timeToDb(endNorm),
       booked_by: currentUser,
       is_in_use: false,
     }));
@@ -371,8 +423,8 @@ document.getElementById('booking-submit').addEventListener('click', async () => 
     await writeLog('create_booking', {
       room: currentRoom,
       dates,
-      start,
-      end,
+      start: startNorm,
+      end: endNorm,
       count: dates.length,
     });
 
@@ -406,15 +458,16 @@ claimModal.addEventListener('click', (e) => {
 
 document.getElementById('claim-submit').addEventListener('click', async () => {
   const date = claimDate.value;
-  const start = claimStart.value;
-  const end = claimEnd.value;
+  const startNorm = parseTimeInput(claimStart.value);
+  const endNorm = parseTimeInput(claimEnd.value);
   const remark = claimRemark.value.trim();
 
-  if (!date || !start || !end) return showToast('請填寫日期與時間');
-  if (start >= end) return showToast('結束時間必須晚於開始時間');
+  if (!date) return showToast('請填寫日期');
+  if (!startNorm || !endNorm) return showToast('時間格式錯誤，請使用 24 小時制，例如 09:00 或 13:30');
+  if (startNorm >= endNorm) return showToast('結束時間必須晚於開始時間');
 
-  const startM = parseTimeToMinutes(start);
-  const endM = parseTimeToMinutes(end);
+  const startM = parseTimeToMinutes(startNorm);
+  const endM = parseTimeToMinutes(endNorm);
 
   let booking = currentBookings.find((b) => {
     if (b.booking_date !== date) return false;
@@ -456,8 +509,8 @@ document.getElementById('claim-submit').addEventListener('click', async () => {
       booking_id: booking.id,
       room: currentRoom,
       claim_date: date,
-      start_time: timeToDb(start),
-      end_time: timeToDb(end),
+      start_time: timeToDb(startNorm),
+      end_time: timeToDb(endNorm),
       claimed_by: currentUser,
       remark: remark || null,
     });
@@ -472,8 +525,8 @@ document.getElementById('claim-submit').addEventListener('click', async () => {
     await writeLog('add_claim', {
       room: currentRoom,
       date,
-      start,
-      end,
+      start: startNorm,
+      end: endNorm,
       remark,
       booking_id: booking.id,
     });
@@ -509,10 +562,26 @@ async function openDetail(bookingId) {
   }
 
   const claims = b.claims || [];
+  const isOwner = b.booked_by === currentUser;
+
   detailContent.innerHTML = `
     <div class="flex justify-between"><span class="text-slate-500">房間</span><span class="font-medium">${escapeHtml(b.room)}</span></div>
     <div class="flex justify-between"><span class="text-slate-500">日期</span><span class="font-medium">${escapeHtml(b.booking_date)}</span></div>
-    <div class="flex justify-between"><span class="text-slate-500">時段</span><span class="font-medium">${formatTime(b.start_time)} – ${formatTime(b.end_time)}</span></div>
+    <div class="flex justify-between items-center gap-2">
+      <span class="text-slate-500">時段</span>
+      <span class="font-medium" id="detail-time-display">${formatTime(b.start_time)} – ${formatTime(b.end_time)}</span>
+    </div>
+    ${
+      isOwner
+        ? `<div class="grid grid-cols-2 gap-2 mt-1">
+            <input id="detail-edit-start" type="text" value="${formatTime(b.start_time)}" placeholder="09:00" maxlength="5"
+                   class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input id="detail-edit-end" type="text" value="${formatTime(b.end_time)}" placeholder="10:00" maxlength="5"
+                   class="border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <button type="button" id="detail-save-time" class="col-span-2 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg py-1.5 font-medium">儲存時間</button>
+          </div>`
+        : ''
+    }
     <div class="flex justify-between"><span class="text-slate-500">預約人</span><span class="font-medium">${escapeHtml(b.booked_by)}</span></div>
     <div class="flex justify-between">
       <span class="text-slate-500">狀態</span>
@@ -547,7 +616,7 @@ async function openDetail(bookingId) {
     }
   `;
 
-  // 綁定編輯留言
+  // 綁定編輯留言（僅自己的）
   detailContent.querySelectorAll('.edit-claim-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const claimId = btn.dataset.id;
@@ -559,7 +628,7 @@ async function openDetail(bookingId) {
           .from('claims')
           .update({ remark: newRemark.trim() || null })
           .eq('id', claimId)
-          .eq('claimed_by', currentUser); // 再保險：只能改自己的
+          .eq('claimed_by', currentUser);
         if (error) throw error;
         await writeLog('edit_claim', { claim_id: claimId, room: currentRoom });
         showToast('留言已更新');
@@ -572,10 +641,44 @@ async function openDetail(bookingId) {
     });
   });
 
-  detailToggleUse.textContent = b.is_in_use ? '改為「沒有在使用」' : '改為「有在使用」';
-  detailToggleUse.className = b.is_in_use
-    ? 'flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50'
-    : 'flex-1 border border-emerald-200 bg-emerald-50 text-emerald-800 rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-100';
+  // 建立者可改時間
+  const saveTimeBtn = document.getElementById('detail-save-time');
+  if (saveTimeBtn) {
+    saveTimeBtn.addEventListener('click', async () => {
+      const ns = parseTimeInput(document.getElementById('detail-edit-start').value);
+      const ne = parseTimeInput(document.getElementById('detail-edit-end').value);
+      if (!ns || !ne) return showToast('時間格式錯誤，例如 09:00');
+      if (ns >= ne) return showToast('結束時間必須晚於開始時間');
+      try {
+        const { error } = await supabaseClient
+          .from('bookings')
+          .update({ start_time: timeToDb(ns), end_time: timeToDb(ne) })
+          .eq('id', selectedBookingId)
+          .eq('booked_by', currentUser);
+        if (error) throw error;
+        await writeLog('edit_booking_time', { booking_id: selectedBookingId, room: currentRoom, start: ns, end: ne });
+        showToast('時間已更新');
+        detailModal.classList.add('hidden');
+        loadWeekData();
+      } catch (err) {
+        console.error(err);
+        showToast('更新失敗');
+      }
+    });
+  }
+
+  // 只有建立者可切換狀態、刪除
+  if (isOwner) {
+    detailToggleUse.classList.remove('hidden');
+    detailDelete.classList.remove('hidden');
+    detailToggleUse.textContent = b.is_in_use ? '改為「沒有在使用」' : '改為「有在使用」';
+    detailToggleUse.className = b.is_in_use
+      ? 'flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50'
+      : 'flex-1 border border-emerald-200 bg-emerald-50 text-emerald-800 rounded-lg py-2.5 text-sm font-medium hover:bg-emerald-100';
+  } else {
+    detailToggleUse.classList.add('hidden');
+    detailDelete.classList.add('hidden');
+  }
 
   detailModal.classList.remove('hidden');
 }
@@ -588,12 +691,16 @@ detailModal.addEventListener('click', (e) => {
 detailToggleUse.addEventListener('click', async () => {
   if (!selectedBookingId) return;
   const b = currentBookings.find((x) => x.id === selectedBookingId);
-  const currently = b ? !!b.is_in_use : false;
+  if (!b || b.booked_by !== currentUser) {
+    return showToast('只有建立者可以切換使用狀態');
+  }
+  const currently = !!b.is_in_use;
   try {
     const { error } = await supabaseClient
       .from('bookings')
       .update({ is_in_use: !currently })
-      .eq('id', selectedBookingId);
+      .eq('id', selectedBookingId)
+      .eq('booked_by', currentUser);
     if (error) throw error;
     await writeLog('toggle_use', {
       booking_id: selectedBookingId,
@@ -610,9 +717,17 @@ detailToggleUse.addEventListener('click', async () => {
 
 detailDelete.addEventListener('click', async () => {
   if (!selectedBookingId) return;
+  const b = currentBookings.find((x) => x.id === selectedBookingId);
+  if (!b || b.booked_by !== currentUser) {
+    return showToast('只有建立者可以刪除');
+  }
   if (!confirm('確定刪除這筆預約？相關留言也會一併刪除。')) return;
   try {
-    const { error } = await supabaseClient.from('bookings').delete().eq('id', selectedBookingId);
+    const { error } = await supabaseClient
+      .from('bookings')
+      .delete()
+      .eq('id', selectedBookingId)
+      .eq('booked_by', currentUser);
     if (error) throw error;
     await writeLog('delete_booking', {
       booking_id: selectedBookingId,
@@ -672,6 +787,8 @@ function formatLogDetails(action, details) {
       return '已刪除該筆預約';
     case 'edit_claim':
       return '修改了留言';
+    case 'edit_booking_time':
+      return d.start && d.end ? `改為 ${d.start}–${d.end}` : '修改了時間';
     default:
       return '';
   }
@@ -683,6 +800,7 @@ const ACTION_LABEL = {
   toggle_use: '切換使用狀態',
   delete_booking: '刪除預約',
   edit_claim: '修改留言',
+  edit_booking_time: '修改預約時間',
 };
 
 document.getElementById('btn-show-logs').addEventListener('click', async () => {
@@ -775,6 +893,34 @@ logsModal.addEventListener('click', (e) => {
 });
 
 // ============================================
+// Realtime：其他人新增／修改後自動更新
+// ============================================
+function setupRealtime() {
+  try {
+    supabaseClient
+      .channel('room-status-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings' },
+        () => {
+          loadWeekData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'claims' },
+        () => {
+          loadWeekData();
+        }
+      )
+      .subscribe();
+  } catch (err) {
+    console.warn('Realtime 訂閱失敗', err);
+  }
+}
+
+// ============================================
 // 啟動
 // ============================================
 checkLogin();
+setupRealtime();
