@@ -610,32 +610,40 @@ async function openDetail(bookingId) {
       claims.length
         ? `<div class="pt-3 border-t border-slate-100">
             <div class="text-slate-500 mb-2">留言 / 需要使用紀錄</div>
-            ${claims
+            ${[...claims]
+              .sort((a, c) => parseTimeToMinutes(a.start_time) - parseTimeToMinutes(c.start_time))
               .map((c) => {
                 const canEdit = c.claimed_by === currentUser;
                 return `
               <div class="bg-slate-50 rounded-lg px-3 py-2 mb-2" data-claim-id="${c.id}">
-                <div class="flex justify-between text-xs text-slate-400 mb-0.5">
-                  <span>${escapeHtml(c.claimed_by)}</span>
-                  <span class="claim-time-label">${formatTime(c.start_time)}–${formatTime(c.end_time)}</span>
-                </div>
-                <div class="claim-remark-text">${c.remark ? escapeHtml(c.remark) : '<span class="text-slate-400">（無留言）</span>'}</div>
-                ${
-                  canEdit
-                    ? `<div class="mt-2 space-y-1.5 border-t border-slate-200/60 pt-2">
-                        <div class="grid grid-cols-2 gap-1.5">
-                          <input type="text" class="claim-edit-start border border-slate-200 rounded px-2 py-1 text-xs" value="${formatTime(c.start_time)}" placeholder="13:00" maxlength="5" />
-                          <input type="text" class="claim-edit-end border border-slate-200 rounded px-2 py-1 text-xs" value="${formatTime(c.end_time)}" placeholder="15:00" maxlength="5" />
-                        </div>
-                        <input type="text" class="claim-edit-remark w-full border border-slate-200 rounded px-2 py-1 text-xs" value="${escapeHtml(c.remark || '')}" placeholder="留言（選填）" />
-                        <button type="button" class="edit-claim-btn w-full text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 rounded py-1.5 font-medium"
+                <div class="flex justify-between items-start gap-2">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap justify-between gap-x-2 text-xs text-slate-400 mb-0.5">
+                      <span>${escapeHtml(c.claimed_by)}</span>
+                      <span class="claim-time-label">${formatTime(c.start_time)}–${formatTime(c.end_time)}</span>
+                    </div>
+                    <div class="claim-view">${c.remark ? escapeHtml(c.remark) : '<span class="text-slate-400">（無留言）</span>'}</div>
+                    <div class="claim-edit-form hidden mt-2 space-y-1.5 border-t border-slate-200/60 pt-2">
+                      <div class="grid grid-cols-2 gap-1.5">
+                        <input type="text" class="claim-edit-start border border-slate-200 rounded px-2 py-1 text-xs" value="${formatTime(c.start_time)}" placeholder="13:00" maxlength="5" />
+                        <input type="text" class="claim-edit-end border border-slate-200 rounded px-2 py-1 text-xs" value="${formatTime(c.end_time)}" placeholder="15:00" maxlength="5" />
+                      </div>
+                      <input type="text" class="claim-edit-remark w-full border border-slate-200 rounded px-2 py-1 text-xs" value="${escapeHtml(c.remark || '')}" placeholder="留言（選填）" />
+                      <div class="flex gap-1.5">
+                        <button type="button" class="save-claim-btn flex-1 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 rounded py-1.5 font-medium"
                           data-id="${c.id}"
-                          data-booking-id="${b.id}"
                           data-booking-start="${formatTime(b.start_time)}"
-                          data-booking-end="${formatTime(b.end_time)}">儲存修改</button>
-                      </div>`
-                    : ''
-                }
+                          data-booking-end="${formatTime(b.end_time)}">儲存</button>
+                        <button type="button" class="cancel-claim-edit flex-1 text-xs border border-slate-200 rounded py-1.5">取消</button>
+                      </div>
+                    </div>
+                  </div>
+                  ${
+                    canEdit
+                      ? `<button type="button" class="toggle-claim-edit shrink-0 text-xs text-blue-600 hover:text-blue-800 font-medium px-1">編輯</button>`
+                      : ''
+                  }
+                </div>
               </div>`;
               })
               .join('')}
@@ -644,8 +652,31 @@ async function openDetail(bookingId) {
     }
   `;
 
-  // 綁定編輯自己的「新增預約」（時間 + 留言）
-  detailContent.querySelectorAll('.edit-claim-btn').forEach((btn) => {
+  // 點「編輯」展開表單
+  detailContent.querySelectorAll('.toggle-claim-edit').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const box = btn.closest('[data-claim-id]');
+      const form = box.querySelector('.claim-edit-form');
+      const view = box.querySelector('.claim-view');
+      const open = !form.classList.contains('hidden');
+      form.classList.toggle('hidden', open);
+      view.classList.toggle('hidden', !open);
+      btn.textContent = open ? '編輯' : '收起';
+    });
+  });
+
+  detailContent.querySelectorAll('.cancel-claim-edit').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const box = btn.closest('[data-claim-id]');
+      box.querySelector('.claim-edit-form').classList.add('hidden');
+      box.querySelector('.claim-view').classList.remove('hidden');
+      const toggleBtn = box.querySelector('.toggle-claim-edit');
+      if (toggleBtn) toggleBtn.textContent = '編輯';
+    });
+  });
+
+  // 儲存自己的時間 + 留言
+  detailContent.querySelectorAll('.save-claim-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const claimId = btn.dataset.id;
       const box = btn.closest('[data-claim-id]');
@@ -664,7 +695,6 @@ async function openDetail(bookingId) {
         return showToast('時間必須落在原預約紀錄範圍內');
       }
 
-      // 不可與同日同房其他 claim 重疊（排除自己）
       try {
         const { data: otherClaims, error: qErr } = await supabaseClient
           .from('claims')
