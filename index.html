@@ -117,16 +117,20 @@
             <button data-room="A301" class="room-tab px-3.5 py-1.5 rounded-lg text-sm font-medium transition text-slate-600 hover:text-slate-800">A301</button>
           </div>
           <button id="btn-add-claim" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
-            新增預約
+            登記實際使用
           </button>
           <button id="btn-add-booking" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3.5 py-2 rounded-lg transition">
-            輸入預約紀錄
+            登記系統預約
           </button>
           <button id="btn-show-logs" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium px-3.5 py-2 rounded-lg transition">
             操作紀錄
           </button>
         </div>
         <div class="flex items-center gap-2">
+          <div class="flex gap-1 bg-slate-200/70 p-0.5 rounded-lg mr-1">
+            <button id="view-mode-week" class="view-mode-btn px-2.5 py-1 rounded-md text-xs font-medium bg-white shadow">週</button>
+            <button id="view-mode-day" class="view-mode-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600">日</button>
+          </div>
           <button id="prev-week" class="border border-slate-200 bg-white hover:bg-slate-50 rounded-lg p-2 transition" title="上一週">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
           </button>
@@ -149,11 +153,12 @@
     <!-- Legend -->
     <div class="mt-4 flex flex-wrap gap-5 text-sm text-slate-500">
       <div class="flex items-center gap-2">
-        <span class="inline-block w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300"></span> 預約紀錄（尚未使用）
+        <span class="inline-block w-3.5 h-3.5 rounded bg-slate-200 border border-slate-300"></span> 系統預約（灰色）
       </div>
       <div class="flex items-center gap-2">
-        <span class="inline-block w-3.5 h-3.5 rounded bg-emerald-200 border border-emerald-300"></span> 有在使用
+        <span class="inline-block w-3.5 h-3.5 rounded bg-emerald-200 border border-emerald-300"></span> 實際使用（綠色）
       </div>
+      <div class="text-slate-400">點空白格可快速帶入時間</div>
     </div>
   </div>
 
@@ -162,7 +167,7 @@
   <!-- Add Booking Modal -->
   <div id="booking-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-      <h2 class="text-lg font-semibold mb-1">輸入預約紀錄</h2>
+      <h2 class="text-lg font-semibold mb-1">登記系統預約</h2>
       <p class="text-sm text-slate-500 mb-4">房間：<span id="booking-modal-room" class="font-medium text-slate-700"></span>（把公司預約系統的紀錄登記進來）</p>
       <div class="space-y-4">
         <div class="grid grid-cols-2 gap-3">
@@ -199,8 +204,8 @@
   <!-- Add Claim Modal -->
   <div id="claim-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-      <h2 class="text-lg font-semibold mb-1">新增預約</h2>
-      <p class="text-sm text-slate-500 mb-4">房間：<span id="claim-modal-room" class="font-medium text-slate-700"></span><br>時間必須落在既有「預約紀錄」範圍內，且該時段尚未被標記為有在使用。送出後會自動標記為「有在使用」。</p>
+      <h2 class="text-lg font-semibold mb-1">登記實際使用</h2>
+      <p class="text-sm text-slate-500 mb-4">房間：<span id="claim-modal-room" class="font-medium text-slate-700"></span><br>時間必須落在既有「系統預約」範圍內，且不可與其他人的實際使用時段重疊。送出後會以綠色顯示實際使用時段。</p>
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium mb-1">日期</label>
