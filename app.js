@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const ROOMS = ['A200', 'A201', 'A301'];
 const DAY_START = 9;   // 09:00
 const DAY_END = 22;    // 22:00
-const HOUR_HEIGHT = 36; // px per hour（每小時一格，較清楚）
+const HOUR_HEIGHT = 47; // px per hour（約 +30%）
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -58,6 +58,7 @@ const detailContent = document.getElementById('detail-content');
 const detailToggleUse = document.getElementById('detail-toggle-use');
 const detailDelete = document.getElementById('detail-delete');
 const detailClose = document.getElementById('detail-close');
+const detailAddClaim = document.getElementById('detail-add-claim');
 
 const logsModal = document.getElementById('logs-modal');
 const logsContent = document.getElementById('logs-content');
@@ -441,27 +442,8 @@ function renderCalendar() {
       });
   });
 
-  // click empty slot → prefill
-  calendarEl.querySelectorAll('.empty-slot').forEach((cell) => {
-    cell.style.cursor = 'pointer';
-    cell.addEventListener('click', () => {
-      const date = cell.dataset.date;
-      const hour = parseInt(cell.dataset.hour, 10);
-      const start = `${String(hour).padStart(2, '0')}:00`;
-      const endH = Math.min(hour + 1, DAY_END);
-      const end = `${String(endH).padStart(2, '0')}:00`;
-      pendingPrefill = { date, start, end };
-      // open claim modal by default (登記實際使用) with prefill
-      claimModalRoom.textContent = currentRoom;
-      claimDate.value = date;
-      claimStart.value = start;
-      claimEnd.value = end;
-      claimRemark.value = '';
-      claimModal.classList.remove('hidden');
-      showToast(`已帶入 ${date} ${start}–${end}，可改為登記系統預約`);
-    });
-  });
 }
+
 
 // ============================================
 // 登記系統預約
@@ -502,12 +484,19 @@ document.getElementById('booking-submit').addEventListener('click', async () => 
   if (from > to) return showToast('結束日期不能早於開始日期');
   if (startNorm >= endNorm) return showToast('結束時間必須晚於開始時間');
 
+  const workdaysOnly = document.getElementById('booking-workdays-only')?.checked;
   const dates = [];
   let cur = new Date(from + 'T00:00:00');
   const endDate = new Date(to + 'T00:00:00');
   while (cur <= endDate) {
-    dates.push(toDateStr(cur));
+    const dow = cur.getDay(); // 0=Sun ... 6=Sat
+    if (!workdaysOnly || (dow >= 1 && dow <= 5)) {
+      dates.push(toDateStr(cur));
+    }
     cur = addDays(cur, 1);
+  }
+  if (dates.length === 0) {
+    return showToast('所選區間沒有工作日（週一至週五）');
   }
 
   const startM = parseTimeToMinutes(startNorm);
@@ -974,6 +963,25 @@ async function openDetail(bookingId) {
 
   detailModal.classList.remove('hidden');
 }
+
+
+detailAddClaim.addEventListener('click', () => {
+  if (!selectedBookingId) return;
+  const b = currentBookings.find((x) => x.id === selectedBookingId);
+  detailModal.classList.add('hidden');
+  claimModalRoom.textContent = currentRoom;
+  if (b) {
+    claimDate.value = b.booking_date;
+    claimStart.value = formatTime(b.start_time);
+    claimEnd.value = formatTime(b.end_time);
+  } else {
+    claimDate.value = toDateStr(new Date());
+    claimStart.value = '';
+    claimEnd.value = '';
+  }
+  claimRemark.value = '';
+  claimModal.classList.remove('hidden');
+});
 
 detailClose.addEventListener('click', () => detailModal.classList.add('hidden'));
 detailModal.addEventListener('click', (e) => {
