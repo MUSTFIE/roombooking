@@ -37,7 +37,7 @@
       border-right: 1px solid #e2e8f0;
       border-bottom: 1px solid #e2e8f0;
       position: relative;
-      min-height: 36px;
+      min-height: 47px;
       background: #fff;
     }
     .calendar-grid .slot-cell:nth-child(8n+2),
@@ -158,7 +158,6 @@
       <div class="flex items-center gap-2">
         <span class="inline-block w-3.5 h-3.5 rounded bg-emerald-200 border border-emerald-300"></span> 實際使用（綠色）
       </div>
-      <div class="text-slate-400">點空白格可快速帶入時間</div>
     </div>
   </div>
 
@@ -192,7 +191,11 @@
                    class="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
-        <p class="text-xs text-slate-400">請輸入 24 小時制，例如 09:00、13:30。若選擇多天，會在每一天產生相同時段。</p>
+        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+          <input id="booking-workdays-only" type="checkbox" class="rounded border-slate-300" checked />
+          僅工作日（週一至週五）
+        </label>
+        <p class="text-xs text-slate-400">請輸入 24 小時制，例如 09:00、13:30。若選擇多天，會依上方選項產生各日相同時段。</p>
       </div>
       <div class="flex gap-3 mt-6">
         <button id="booking-cancel" class="flex-1 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50">取消</button>
@@ -241,9 +244,10 @@
     <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
       <h2 class="text-lg font-semibold mb-4">預約詳情</h2>
       <div id="detail-content" class="space-y-3 text-sm"></div>
-      <div class="flex gap-3 mt-6">
+      <button id="detail-add-claim" class="w-full mb-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-2.5 text-sm font-medium transition">登記實際使用</button>
+      <div class="flex gap-3">
         <button id="detail-toggle-use" class="flex-1 border rounded-lg py-2.5 text-sm font-medium transition"></button>
-        <button id="detail-delete" class="flex-1 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg py-2.5 text-sm font-medium">刪除預約</button>
+        <button id="detail-delete" class="flex-1 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg py-2.5 text-sm font-medium">刪除系統預約</button>
       </div>
       <button id="detail-close" class="w-full mt-3 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50">關閉</button>
     </div>
