@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const ROOMS = ['A200', 'A201', 'A301'];
 const DAY_START = 9;   // 09:00
 const DAY_END = 22;    // 22:00
-const HOUR_HEIGHT = 47; // px per hour（約 +30%）
+const HOUR_HEIGHT = 61; // px per hour（再 +30%）
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -20,9 +20,11 @@ let weekStart = getMonday(new Date()); // Date object, Monday 00:00
 let currentBookings = [];
 let currentClaims = []; // flat claims for calendar green blocks
 let selectedBookingId = null;
-let viewMode = window.innerWidth < 768 ? 'day' : 'week'; // week | day
+let viewMode = window.innerWidth < 768 ? 'day' : 'week'; // week | day | month
 let dayCursor = new Date(); // for day view
 dayCursor.setHours(0,0,0,0);
+let monthCursor = new Date(dayCursor.getFullYear(), dayCursor.getMonth(), 1);
+let dpCursor = new Date(dayCursor.getFullYear(), dayCursor.getMonth(), 1); // date picker month
 let loadTimer = null;
 let pendingPrefill = null; // { date, start, end } from cell click
 
@@ -211,6 +213,8 @@ function updateWeekLabel() {
   if (viewMode === 'day') {
     const wd = ['日','一','二','三','四','五','六'][dayCursor.getDay()];
     weekLabel.textContent = `${dayCursor.toLocaleDateString('zh-TW', opts)}（週${wd}）`;
+  } else if (viewMode === 'month') {
+    weekLabel.textContent = `${monthCursor.getFullYear()}年 ${monthCursor.getMonth() + 1}月`;
   } else {
     const end = addDays(weekStart, 6);
     weekLabel.textContent = `${weekStart.toLocaleDateString('zh-TW', opts)} – ${end.toLocaleDateString('zh-TW', opts)}`;
@@ -220,6 +224,8 @@ function updateWeekLabel() {
 document.getElementById('prev-week').addEventListener('click', () => {
   if (viewMode === 'day') {
     dayCursor = addDays(dayCursor, -1);
+  } else if (viewMode === 'month') {
+    monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1);
   } else {
     weekStart = addDays(weekStart, -7);
   }
@@ -230,6 +236,8 @@ document.getElementById('prev-week').addEventListener('click', () => {
 document.getElementById('next-week').addEventListener('click', () => {
   if (viewMode === 'day') {
     dayCursor = addDays(dayCursor, 1);
+  } else if (viewMode === 'month') {
+    monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1);
   } else {
     weekStart = addDays(weekStart, 7);
   }
@@ -242,6 +250,7 @@ document.getElementById('today-btn').addEventListener('click', () => {
   now.setHours(0,0,0,0);
   dayCursor = now;
   weekStart = getMonday(now);
+  monthCursor = new Date(now.getFullYear(), now.getMonth(), 1);
   updateWeekLabel();
   loadWeekData();
 });
@@ -252,14 +261,16 @@ function setViewMode(mode) {
     b.classList.remove('bg-white', 'shadow');
     b.classList.add('text-slate-600');
   });
-  const active = document.getElementById(mode === 'day' ? 'view-mode-day' : 'view-mode-week');
+  const idMap = { day: 'view-mode-day', week: 'view-mode-week', month: 'view-mode-month' };
+  const active = document.getElementById(idMap[mode]);
   if (active) {
     active.classList.add('bg-white', 'shadow');
     active.classList.remove('text-slate-600');
   }
   if (mode === 'day') {
-    // align dayCursor to current week if needed
     dayCursor = new Date(dayCursor);
+  } else if (mode === 'month') {
+    monthCursor = new Date(dayCursor.getFullYear(), dayCursor.getMonth(), 1);
   } else {
     weekStart = getMonday(dayCursor);
   }
@@ -269,9 +280,11 @@ function setViewMode(mode) {
 
 const vmWeek = document.getElementById('view-mode-week');
 const vmDay = document.getElementById('view-mode-day');
+const vmMonth = document.getElementById('view-mode-month');
 if (vmWeek) vmWeek.addEventListener('click', () => setViewMode('week'));
 if (vmDay) vmDay.addEventListener('click', () => setViewMode('day'));
-// init button style
+if (vmMonth) vmMonth.addEventListener('click', () => setViewMode('month'));
+// init button style for day default on mobile
 if (viewMode === 'day' && vmDay) {
   vmWeek && vmWeek.classList.remove('bg-white', 'shadow');
   vmDay.classList.add('bg-white', 'shadow');
@@ -290,6 +303,11 @@ async function loadWeekData() {
   let from, to;
   if (viewMode === 'day') {
     from = to = toDateStr(dayCursor);
+  } else if (viewMode === 'month') {
+    const y = monthCursor.getFullYear();
+    const m = monthCursor.getMonth();
+    from = toDateStr(new Date(y, m, 1));
+    to = toDateStr(new Date(y, m + 1, 0));
   } else {
     from = toDateStr(weekStart);
     to = toDateStr(addDays(weekStart, 6));
@@ -328,7 +346,79 @@ async function loadWeekData() {
 // ============================================
 // 渲染週曆
 // ============================================
+function renderMonthView() {
+  const y = monthCursor.getFullYear();
+  const m = monthCursor.getMonth();
+  const first = new Date(y, m, 1);
+  // Monday-first: offset
+  let startPad = first.getDay(); // 0=Sun
+  startPad = startPad === 0 ? 6 : startPad - 1;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startPad; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const bookingsByDate = {};
+  currentBookings.forEach((b) => {
+    if (!bookingsByDate[b.booking_date]) bookingsByDate[b.booking_date] = [];
+    bookingsByDate[b.booking_date].push(b);
+  });
+  const claimsByDate = {};
+  currentClaims.forEach((c) => {
+    const ds = c.claim_date || c.booking_date;
+    if (!claimsByDate[ds]) claimsByDate[ds] = [];
+    claimsByDate[ds].push(c);
+  });
+
+  let html = `<div class="p-3">
+    <div class="grid grid-cols-7 gap-1 text-center text-xs text-slate-400 mb-2">
+      <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
+    </div>
+    <div class="grid grid-cols-7 gap-1.5">`;
+
+  cells.forEach((d) => {
+    if (!d) {
+      html += `<div class="min-h-[72px] rounded-lg bg-slate-50"></div>`;
+      return;
+    }
+    const ds = toDateStr(d);
+    const isTod = isToday(ds);
+    const bs = bookingsByDate[ds] || [];
+    const cs = claimsByDate[ds] || [];
+    html += `<button type="button" data-date="${ds}" class="month-day min-h-[72px] rounded-lg border p-1.5 text-left transition hover:border-blue-300 hover:bg-blue-50/50 ${isTod ? 'border-blue-400 bg-blue-50' : 'border-slate-100 bg-white'}">
+      <div class="text-sm font-medium ${isTod ? 'text-blue-700' : 'text-slate-700'}">${d.getDate()}</div>
+      <div class="mt-1 space-y-0.5">`;
+    bs.slice(0, 2).forEach((b) => {
+      html += `<div class="text-[10px] truncate rounded px-1 py-0.5 bg-slate-200 text-slate-600">${formatTime(b.start_time)} ${escapeHtml(b.room || '')}</div>`;
+    });
+    cs.slice(0, 2).forEach((c) => {
+      html += `<div class="text-[10px] truncate rounded px-1 py-0.5 bg-emerald-200 text-emerald-800">${formatTime(c.start_time)} ${escapeHtml(c.claimed_by)}</div>`;
+    });
+    const more = bs.length + cs.length - 4;
+    if (more > 0) html += `<div class="text-[10px] text-slate-400">+${more}</div>`;
+    html += `</div></button>`;
+  });
+  html += `</div></div>`;
+  calendarEl.innerHTML = html;
+
+  calendarEl.querySelectorAll('.month-day').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const ds = btn.dataset.date;
+      const [yy, mm, dd] = ds.split('-').map(Number);
+      dayCursor = new Date(yy, mm - 1, dd);
+      weekStart = getMonday(dayCursor);
+      setViewMode('week');
+    });
+  });
+}
+
 function renderCalendar() {
+  if (viewMode === 'month') {
+    renderMonthView();
+    return;
+  }
+
   const hours = [];
   for (let h = DAY_START; h < DAY_END; h++) hours.push(h);
 
@@ -1193,6 +1283,88 @@ document.getElementById('logs-close').addEventListener('click', () => {
 });
 logsModal.addEventListener('click', (e) => {
   if (e.target === logsModal) logsModal.classList.add('hidden');
+});
+
+
+// ============================================
+// 日期選擇器（點日期範圍 → 選日後跳到該週）
+// ============================================
+const datePickerModal = document.getElementById('date-picker-modal');
+const dpTitle = document.getElementById('dp-title');
+const dpGrid = document.getElementById('dp-grid');
+
+function renderDatePicker() {
+  if (!dpGrid) return;
+  const y = dpCursor.getFullYear();
+  const m = dpCursor.getMonth();
+  dpTitle.textContent = `${y}年 ${m + 1}月`;
+
+  const first = new Date(y, m, 1);
+  let startPad = first.getDay();
+  startPad = startPad === 0 ? 6 : startPad - 1;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  let html = '';
+  for (let i = 0; i < startPad; i++) html += `<div></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(y, m, d);
+    const ds = toDateStr(date);
+    const isTod = isToday(ds);
+    // highlight if in current week view range
+    let inFocus = false;
+    if (viewMode === 'week') {
+      const from = weekStart;
+      const to = addDays(weekStart, 6);
+      inFocus = date >= from && date <= to;
+    } else if (viewMode === 'day') {
+      inFocus = ds === toDateStr(dayCursor);
+    }
+    html += `<button type="button" data-date="${ds}" class="dp-day aspect-square rounded-lg text-sm font-medium transition
+      ${isTod ? 'ring-2 ring-blue-500' : ''}
+      ${inFocus ? 'bg-blue-600 text-white hover:bg-blue-700' : 'hover:bg-slate-100 text-slate-700'}">${d}</button>`;
+  }
+  dpGrid.innerHTML = html;
+  dpGrid.querySelectorAll('.dp-day').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const ds = btn.dataset.date;
+      const [yy, mm, dd] = ds.split('-').map(Number);
+      dayCursor = new Date(yy, mm - 1, dd);
+      weekStart = getMonday(dayCursor);
+      monthCursor = new Date(yy, mm - 1, 1);
+      datePickerModal.classList.add('hidden');
+      // always jump to week view of that date
+      setViewMode('week');
+    });
+  });
+}
+
+if (weekLabel) {
+  weekLabel.addEventListener('click', () => {
+    if (viewMode === 'month') {
+      dpCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+    } else if (viewMode === 'day') {
+      dpCursor = new Date(dayCursor.getFullYear(), dayCursor.getMonth(), 1);
+    } else {
+      dpCursor = new Date(weekStart.getFullYear(), weekStart.getMonth(), 1);
+    }
+    renderDatePicker();
+    datePickerModal.classList.remove('hidden');
+  });
+}
+
+document.getElementById('dp-prev')?.addEventListener('click', () => {
+  dpCursor = new Date(dpCursor.getFullYear(), dpCursor.getMonth() - 1, 1);
+  renderDatePicker();
+});
+document.getElementById('dp-next')?.addEventListener('click', () => {
+  dpCursor = new Date(dpCursor.getFullYear(), dpCursor.getMonth() + 1, 1);
+  renderDatePicker();
+});
+document.getElementById('dp-close')?.addEventListener('click', () => {
+  datePickerModal.classList.add('hidden');
+});
+datePickerModal?.addEventListener('click', (e) => {
+  if (e.target === datePickerModal) datePickerModal.classList.add('hidden');
 });
 
 // ============================================
