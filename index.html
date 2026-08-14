@@ -37,7 +37,7 @@
       border-right: 1px solid #e2e8f0;
       border-bottom: 1px solid #e2e8f0;
       position: relative;
-      min-height: 47px;
+      min-height: 61px;
       background: #fff;
     }
     .calendar-grid .slot-cell:nth-child(8n+2),
@@ -128,15 +128,16 @@
         </div>
         <div class="flex items-center gap-2">
           <div class="flex gap-1 bg-slate-200/70 p-0.5 rounded-lg mr-1">
-            <button id="view-mode-week" class="view-mode-btn px-2.5 py-1 rounded-md text-xs font-medium bg-white shadow">週</button>
-            <button id="view-mode-day" class="view-mode-btn px-2.5 py-1 rounded-md text-xs font-medium text-slate-600">日</button>
+            <button id="view-mode-week" class="view-mode-btn px-2.5 py-1.5 rounded-md text-sm font-medium bg-white shadow">週</button>
+            <button id="view-mode-day" class="view-mode-btn px-2.5 py-1.5 rounded-md text-sm font-medium text-slate-600">日</button>
+            <button id="view-mode-month" class="view-mode-btn px-2.5 py-1.5 rounded-md text-sm font-medium text-slate-600">月</button>
           </div>
           <button id="prev-week" class="border border-slate-200 bg-white hover:bg-slate-50 rounded-lg p-2 transition" title="上一週">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
           </button>
-          <span id="week-label" class="text-sm font-medium min-w-[140px] text-center"></span>
+          <button type="button" id="week-label" class="text-sm font-medium min-w-[160px] text-center px-2 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition cursor-pointer" title="點擊選擇日期"></button>
           <button id="next-week" class="border border-slate-200 bg-white hover:bg-slate-50 rounded-lg p-2 transition" title="下一週">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
           </button>
           <button id="today-btn" class="text-xs text-blue-600 hover:text-blue-800 ml-1">今天</button>
         </div>
@@ -266,6 +267,26 @@
       <div id="logs-content" class="overflow-y-auto flex-1 text-sm space-y-2">
         <!-- rendered by JS -->
       </div>
+    </div>
+  </div>
+
+  <!-- Date Picker Modal -->
+  <div id="date-picker-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-xl p-5 w-full max-w-sm mx-4">
+      <div class="flex items-center justify-between mb-4">
+        <button type="button" id="dp-prev" class="p-2 rounded-lg hover:bg-slate-100">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <span id="dp-title" class="font-semibold text-base"></span>
+        <button type="button" id="dp-next" class="p-2 rounded-lg hover:bg-slate-100">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div class="grid grid-cols-7 gap-1 text-center text-xs text-slate-400 mb-1">
+        <div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div><div>日</div>
+      </div>
+      <div id="dp-grid" class="grid grid-cols-7 gap-1"></div>
+      <button type="button" id="dp-close" class="w-full mt-4 border border-slate-200 rounded-lg py-2.5 text-sm font-medium hover:bg-slate-50">關閉</button>
     </div>
   </div>
 
