@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const ROOMS = ['A200', 'A201', 'A301'];
 const DAY_START = 9;   // 09:00
 const DAY_END = 22;    // 22:00
-const HOUR_HEIGHT = 61; // px per hour（再 +30%）
+const HOUR_HEIGHT = 55; // px per hour
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -389,14 +389,11 @@ function renderMonthView() {
     html += `<button type="button" data-date="${ds}" class="month-day min-h-[72px] rounded-lg border p-1.5 text-left transition hover:border-blue-300 hover:bg-blue-50/50 ${isTod ? 'border-blue-400 bg-blue-50' : 'border-slate-100 bg-white'}">
       <div class="text-sm font-medium ${isTod ? 'text-blue-700' : 'text-slate-700'}">${d.getDate()}</div>
       <div class="mt-1 space-y-0.5">`;
-    bs.slice(0, 2).forEach((b) => {
-      html += `<div class="text-[10px] truncate rounded px-1 py-0.5 bg-slate-200 text-slate-600">${formatTime(b.start_time)} ${escapeHtml(b.room || '')}</div>`;
+    // 只顯示預定（系統預約）的開始與結束時間
+    bs.slice(0, 3).forEach((b) => {
+      html += `<div class="text-[10px] truncate rounded px-1 py-0.5 bg-slate-200 text-slate-600">${formatTime(b.start_time)}–${formatTime(b.end_time)}</div>`;
     });
-    cs.slice(0, 2).forEach((c) => {
-      html += `<div class="text-[10px] truncate rounded px-1 py-0.5 bg-emerald-200 text-emerald-800">${formatTime(c.start_time)} ${escapeHtml(c.claimed_by)}</div>`;
-    });
-    const more = bs.length + cs.length - 4;
-    if (more > 0) html += `<div class="text-[10px] text-slate-400">+${more}</div>`;
+    if (bs.length > 3) html += `<div class="text-[10px] text-slate-400">+${bs.length - 3}</div>`;
     html += `</div></button>`;
   });
   html += `</div></div>`;
